@@ -20,10 +20,7 @@ class MainViewModel : ViewModel() {
      * 此处无需（也不应）再使用 launch(Dispatchers.IO)。
      */
     fun runThreadDemo() {
-        viewModelScope.launch {
-            appendLog("--- Initial Thread Info (Filtered) ---")
-            appendLog(getThreadInfoString())
-            appendLog("---------------------------\n")
+        viewModelScope.launch(Dispatchers.IO) {
 
             val taskTimes = listOf(1000L, 2000L, 3000L, 4000L)
             

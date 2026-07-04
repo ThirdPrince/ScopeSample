@@ -13,7 +13,7 @@ class MyApplication : Application() {
     }
 
     // 2. 创建应用级作用域，显式绑定自定义分发器
-    private val applicationScope = CoroutineScope(SupervisorJob() + appExecutor.asCoroutineDispatcher())
+    private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onCreate() {
         super.onCreate()
