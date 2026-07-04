@@ -14,9 +14,12 @@ class MainViewModel : ViewModel() {
     private val _logText = MutableStateFlow("Initializing...\n")
     val logText: StateFlow<String> = _logText.asStateFlow()
 
+    /**
+     * 演示逻辑：直接在 viewModelScope 中分发任务。
+     * 由于 TaskRunner.test 内部已经通过 withContext 切换到了私有线程池，
+     * 此处无需（也不应）再使用 launch(Dispatchers.IO)。
+     */
     fun runThreadDemo() {
-        // 文章优化点：直接在 viewModelScope (Main线程) 启动
-        // 依靠 TaskRunner 内部的 withContext 进行线程精确切换
         viewModelScope.launch {
             appendLog("--- Initial Thread Info (Filtered) ---")
             appendLog(getThreadInfoString())
@@ -24,17 +27,15 @@ class MainViewModel : ViewModel() {
 
             val taskTimes = listOf(1000L, 2000L, 3000L, 4000L)
             
-            // 这里不再使用 launch(Dispatchers.IO)
-            // 这样就不会多占 DefaultDispatcher 的 Worker 线程
-            launch(Dispatchers.IO) {
-                taskTimes.forEach { time ->
-                    launch {
-                        // TaskRunner 内部会自己处理切换到 TaskRunner-Pool-x
-                        val result = TaskRunner.test(time)
-                        appendLog(result)
-                    }
+            // ✅ 优化：去除 launch(Dispatchers.IO) 嵌套
+            // 任务直接从主线程分发给 TaskRunner，避免占用 DefaultDispatcher 的 Worker 线程
+            taskTimes.forEach { time ->
+                launch {
+                    val result = TaskRunner.test(time)
+                    appendLog(result)
                 }
             }
+
             delay(4500)
             appendLog("\n--- Threads after 4.5s (Optimized) ---")
             appendLog(getThreadInfoString())
@@ -66,6 +67,5 @@ class MainViewModel : ViewModel() {
 
     override fun onCleared() {
         super.onCleared()
-        // 实际上 TaskRunner 是单例，这里可以不关，或者改为由 MyApplication 管理
     }
 }
