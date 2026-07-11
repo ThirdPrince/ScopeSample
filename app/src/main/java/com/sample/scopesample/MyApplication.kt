@@ -13,12 +13,12 @@ class MyApplication : Application() {
     }
 
     // 2. 创建应用级作用域，显式绑定自定义分发器
-    private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val applicationScope = CoroutineScope(SupervisorJob()+ appExecutor.asCoroutineDispatcher())
 
     override fun onCreate() {
         super.onCreate()
         Log.d("ScopeSample", "MyApplication: Starting background tasks...")
-        startAppTasks()
+      //  startAppTasks()
     }
 
     private fun startAppTasks() {
@@ -26,7 +26,7 @@ class MyApplication : Application() {
         applicationScope.launch {
             Log.d("ScopeSample", "App distributor running on: ${Thread.currentThread().name}")
 
-            val taskTimes = listOf(1000L, 2000L, 3000L, 4000L)
+            val taskTimes = listOf(1000L, 2000L, 2500L,3000L, 4000L)
             taskTimes.forEach { time ->
                 launch {
                     // 任务会从 "MyApplication-Thread" 精确切换到 "TaskRunner-Pool-x"
@@ -34,6 +34,9 @@ class MyApplication : Application() {
                     Log.d("ScopeSample", "[AppTask Result] $result")
                 }
             }
+            delay(5000)
+            Log.d("ScopeSample", "App distributor finished.")
+
         }
     }
 }

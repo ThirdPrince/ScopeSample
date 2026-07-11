@@ -4,37 +4,58 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.*
 
 class MainViewModel : ViewModel() {
 
-    private val _logText = MutableStateFlow("Initializing...\n")
+    private val _logText = MutableStateFlow("Article Demo Ready...\n")
     val logText: StateFlow<String> = _logText.asStateFlow()
 
     /**
-     * 演示逻辑：直接在 viewModelScope 中分发任务。
-     * 由于 TaskRunner.test 内部已经通过 withContext 切换到了私有线程池，
-     * 此处无需（也不应）再使用 launch(Dispatchers.IO)。
+     * 【场景 A：陷阱版本】
+     * 在已经具备异步能力的 TaskRunner 外层，多余地嵌套了 launch(Dispatchers.IO)。
+     * 结果：会导致系统产生大量仅起“搬运任务”作用的空闲 Worker 线程。
      */
-    fun runThreadDemo() {
+    fun runTrapDemo() {
         viewModelScope.launch(Dispatchers.IO) {
+            appendLog("\n>>> [TRAP] 场景开始：嵌套了 launch(Dispatchers.IO)")
+            appendLog(getThreadInfoString())
 
             val taskTimes = listOf(1000L, 2000L, 3000L, 4000L)
-            
-            // ✅ 优化：去除 launch(Dispatchers.IO) 嵌套
-            // 任务直接从主线程分发给 TaskRunner，避免占用 DefaultDispatcher 的 Worker 线程
             taskTimes.forEach { time ->
-                launch {
+                launch { // 隐式继承父协程的 Dispatchers.IO
                     val result = TaskRunner.test(time)
                     appendLog(result)
                 }
             }
 
             delay(4500)
-            appendLog("\n--- Threads after 4.5s (Optimized) ---")
+            appendLog("\n--- [TRAP] 4.5s 后线程状态 ---")
+            appendLog(getThreadInfoString())
+        }
+    }
+
+    /**
+     * 【场景 B：优化版本】
+     * 直接在 viewModelScope (Main) 中启动。
+     * 结果：任务从主线程直达私有执行池，不占用任何系统 Dispatchers.IO 资源。
+     */
+    fun runOptimizedDemo() {
+        viewModelScope.launch {
+            appendLog("\n>>> [OPTIMIZED] 场景开始：直接在主线程作用域分发")
+            appendLog(getThreadInfoString())
+
+            val taskTimes = listOf(1000L, 2000L, 3000L, 4000L)
+            taskTimes.forEach { time ->
+                launch {
+                    // TaskRunner 内部通过 withContext 自动完成精确环境切换
+                    val result = TaskRunner.test(time)
+                    appendLog(result)
+                }
+            }
+
+            delay(4500)
+            appendLog("\n--- [OPTIMIZED] 4.5s 后线程状态 ---")
             appendLog(getThreadInfoString())
         }
     }
@@ -60,9 +81,5 @@ class MainViewModel : ViewModel() {
             sb.append("${index + 1}. [ID: ${t.id}] ${t.name} | ${t.state}\n")
         }
         return sb.toString()
-    }
-
-    override fun onCleared() {
-        super.onCleared()
     }
 }

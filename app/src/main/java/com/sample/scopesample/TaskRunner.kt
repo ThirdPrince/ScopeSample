@@ -1,7 +1,9 @@
 package com.sample.scopesample
 
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.withContext
+import java.time.Instant.now
 import java.util.concurrent.Executors
 
 /**
@@ -15,7 +17,8 @@ object TaskRunner {
     /**
      * 执行耗时测试任务并返回执行结果
      */
-    suspend fun test(time: Long): String = withContext(dispatcher) {
+    suspend fun test(time: Long): String = withContext(Dispatchers.IO) {
+
         // 模拟阻塞 (Thread.sleep)
         Thread.sleep(time)
         "End with $time on thread: ${Thread.currentThread().name}"
@@ -27,4 +30,6 @@ object TaskRunner {
     fun shutdown() {
         myExecutor.shutdown()
     }
+    fun log(vararg msg:Any?) = println("${now()} [${Thread.currentThread().name}] ${msg.joinToString(" ")}")
+
 }
